@@ -20,8 +20,6 @@ namespace Assets.Game.Managers
             {
                 manager.SetState(new PauseState(manager));
             }
-
-            // Your normal gameplay logic
         }
 
         public override void Exit()
