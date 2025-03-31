@@ -79,3 +79,5 @@ crash-reports/
 ## =============== Misc ===============
 *.bak
 *.backup
+
+.vs/
