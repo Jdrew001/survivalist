@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 466af55225057a241a124b487ebbb2f1, type: 3}
+  m_Name: UIInstaller
+  m_EditorClassIdentifier: 
+  uiConfig: {fileID: 11400000, guid: 50adfa9306bad5b42b8e8a918959fd30, type: 2}
+  buttonPrefab: {fileID: 2751095140649875985, guid: e5884c11001405a43bd3f26e9bef3022, type: 3}
+  labelPrefab: {fileID: 4089689405879706650, guid: 86a2b4bacad70a6418f53d1199fb0e92, type: 3}
