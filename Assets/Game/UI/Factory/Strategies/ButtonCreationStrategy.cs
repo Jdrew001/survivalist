@@ -1,5 +1,6 @@
 ﻿using Assets.Game.Managers;
 using Assets.Game.UI.Config;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -29,7 +30,7 @@ namespace Assets.Game.UI.Factory.Strategies
             rt.sizeDelta = data.size;
 
             // Display text
-            var txt = newButtonObj.GetComponentInChildren<Text>();
+            var txt = newButtonObj.GetComponentInChildren<TextMeshProUGUI>();
             if (txt != null)
             {
                 txt.text = data.displayText;
@@ -39,6 +40,7 @@ namespace Assets.Game.UI.Factory.Strategies
             var btn = newButtonObj.GetComponent<Button>();
             if (btn != null)
             {
+                Debug.Log($"click event added!");
                 btn.onClick.AddListener(() =>
                 {
                     Debug.Log($"{data.elementName} clicked!");

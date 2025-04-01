@@ -1,6 +1,6 @@
 ﻿using Assets.Game.UI.Config;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace Assets.Game.UI.Factory.Strategies
@@ -25,7 +25,7 @@ namespace Assets.Game.UI.Factory.Strategies
             rt.sizeDelta = data.size;
 
             // Display text
-            var txt = newLabelObj.GetComponent<Text>();
+            var txt = newLabelObj.GetComponent<TextMeshProUGUI>();
             if (txt != null)
             {
                 txt.text = data.displayText;
