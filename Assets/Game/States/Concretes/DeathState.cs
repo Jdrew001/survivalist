@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace Assets.Game.Managers.States
 {
+    [Serializable]
     public class DeathState : GameState
     {
-        public DeathState(GameStateManager manager) : base(manager)
-        {
-        }
+        //[SerializeField] private float difficultyLevel;
+        //public float DifficultyLevel => difficultyLevel;
+
+        public DeathState() { }
 
         public override void Enter()
         {

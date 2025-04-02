@@ -1,15 +1,20 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Assets.Game.Managers
 {
+    [Serializable]
     public class PauseState : GameState
     {
-        public PauseState(GameStateManager manager) : base(manager) { }
+        //[SerializeField] private float difficultyLevel;
+        //public float DifficultyLevel => difficultyLevel;
+
+        public PauseState() { }
 
         public override void Enter()
         {
             Debug.Log("Entered PAUSE State");
-            // Show pause menu
+            //TODO: Show pause menu -- overlay UI
             Time.timeScale = 0f; // Freeze game logic (except UI)
         }
 
@@ -18,7 +23,7 @@ namespace Assets.Game.Managers
             // Check if user unpauses
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                manager.SetState(new GameplayState(manager));
+                manager.SetState(new GameplayState());
             }
         }
 

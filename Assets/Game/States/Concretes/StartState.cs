@@ -1,14 +1,17 @@
 using Assets.Game.Services.Interfaces;
+using System;
 using UnityEngine;
 
 namespace Assets.Game.Managers
 {
+    [Serializable]
     public class StartState : GameState
     {
 
-        public StartState(GameStateManager manager) : base(manager)
-        {
-        }
+        [SerializeField] private float difficultyLevel;
+        public float DifficultyLevel => difficultyLevel;
+
+        public StartState() { }
 
         public override void Enter()
         {

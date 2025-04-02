@@ -13,9 +13,32 @@ MonoBehaviour:
   m_Name: UIConfig
   m_EditorClassIdentifier: 
   elements:
+  - elementName: startLabel
+    elementType: 1
+    displayText: Survivalist
+    position: {x: 0, y: 100}
+    size: {x: 600, y: 100}
+    nextState:
+      rid: -2
   - elementName: startButton
     elementType: 0
     displayText: Start Game
-    position: {x: 0, y: 0}
-    size: {x: 0, y: 0}
-    sceneToLoad: GameplayState
+    position: {x: 0, y: 50}
+    size: {x: 300, y: 60}
+    nextState:
+      rid: 3563547588108484680
+  - elementName: quitButton
+    elementType: 0
+    displayText: Quit
+    position: {x: 0, y: -50}
+    size: {x: 300, y: 60}
+    nextState:
+      rid: -2
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
+    - rid: 3563547588108484680
+      type: {class: GameplayState, ns: Assets.Game.Managers, asm: Assembly-CSharp}
+      data: 

@@ -1,16 +1,22 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Assets.Game.Managers
 {
+    [Serializable]
     public class GameplayState : GameState
     {
-        public GameplayState(GameStateManager manager) : base(manager) { }
+        public GameplayState() { }
+
+        //[SerializeField] private float difficultyLevel;
+        //public float DifficultyLevel => difficultyLevel;
 
         public override void Enter()
         {
             Debug.Log("Entered GAMEPLAY State");
-            // Enable player controls, hide main menu UI
-            Time.timeScale = 1f; // Ensure normal timescale if unpausing
+            SceneManager.LoadScene("SurvivalWorld");
+            Time.timeScale = 1f; 
         }
 
         public override void Update()
@@ -18,7 +24,7 @@ namespace Assets.Game.Managers
             // Check for pause input
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                manager.SetState(new PauseState(manager));
+                manager.SetState(new PauseState());
             }
         }
 
