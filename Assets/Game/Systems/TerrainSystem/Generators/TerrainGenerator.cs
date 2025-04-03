@@ -30,6 +30,8 @@ namespace Assets.Game.Systems.TerrainSystem.Generators
         /// </summary>
         /// <param name="biomeConfig">Biome configuration to use for terrain generation</param>
         /// <returns>Generated UnityEngine.TerrainData</returns>
+        // In TerrainGenerator.cs, modify the GenerateTerrain method:
+
         public TerrainData GenerateTerrain(BiomeConfig biomeConfig, Vector2Int chunkCoord = default)
         {
             // Get max height from biome configuration
@@ -42,43 +44,87 @@ namespace Assets.Game.Systems.TerrainSystem.Generators
             terrainData.heightmapResolution = width + 1;
             terrainData.size = new Vector3(width, maxHeight, height);
 
-            // Add terrain layers to the terrain data
-            // This goes here, after creating TerrainData but before calling ApplyTerrainTextures
+            // Add terrain layers to the terrain data - WITH ERROR HANDLING
             if (biomeConfig.terrainLayers != null && biomeConfig.terrainLayers.Length > 0)
             {
                 terrainData.terrainLayers = biomeConfig.terrainLayers;
             }
             else
             {
-                Debug.LogWarning("No terrain layers assigned to biome: " + biomeConfig.biomeName);
+                // Create a default terrain layer if none are provided
+                TerrainLayer defaultLayer = new TerrainLayer();
+                defaultLayer.diffuseTexture = Texture2D.grayTexture;
+                defaultLayer.tileSize = new Vector2(50, 50);
+                terrainData.terrainLayers = new TerrainLayer[] { defaultLayer };
+
+                Debug.LogWarning($"No terrain layers assigned to biome: {biomeConfig.biomeName}. Using default terrain layer.");
             }
 
             // Generate the heightmap with chunk coordinates
             float[,] heights = GenerateHeightmap(chunkCoord);
 
-            // Apply smoothing
-            heights = SmoothHeightmap(heights, biomeConfig.smoothingIterations, biomeConfig.smoothingFactor);
+            // IMPORTANT: Ensure dimensions match
+            if (heights.GetLength(0) != terrainData.heightmapResolution ||
+                heights.GetLength(1) != terrainData.heightmapResolution)
+            {
+                Debug.LogWarning($"Height dimensions ({heights.GetLength(0)}x{heights.GetLength(1)}) " +
+                    $"don't match terrain resolution ({terrainData.heightmapResolution}). Resizing...");
+
+                // Create a properly sized array
+                float[,] resizedHeights = new float[terrainData.heightmapResolution, terrainData.heightmapResolution];
+
+                // Copy values to the extent possible
+                int minWidth = Mathf.Min(heights.GetLength(0), terrainData.heightmapResolution);
+                int minHeight = Mathf.Min(heights.GetLength(1), terrainData.heightmapResolution);
+
+                for (int x = 0; x < minWidth; x++)
+                {
+                    for (int y = 0; y < minHeight; y++)
+                    {
+                        resizedHeights[x, y] = heights[x, y];
+                    }
+                }
+
+                heights = resizedHeights;
+            }
+
+            // Apply smoothing with error handling
+            try
+            {
+                heights = SmoothHeightmap(heights, biomeConfig.smoothingIterations, biomeConfig.smoothingFactor);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"Error during smoothing: {ex.Message}");
+            }
 
             // Apply erosion if iterations > 0
             if (biomeConfig.erosionIterations > 0)
             {
-                TerrainErosion erosion = new TerrainErosion();
-                heights = erosion.ApplyThermalErosion(heights, biomeConfig.erosionIterations, biomeConfig.erosionTalus);
-                heights = erosion.ApplyHydraulicErosion(heights, biomeConfig.erosionIterations / 2);
+                try
+                {
+                    TerrainErosion erosion = new TerrainErosion();
+                    heights = erosion.ApplyThermalErosion(heights, biomeConfig.erosionIterations, biomeConfig.erosionTalus);
+                    heights = erosion.ApplyHydraulicErosion(heights, biomeConfig.erosionIterations / 2);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"Error during erosion: {ex.Message}");
+                }
             }
 
-            // Set heights on terrain data
-            terrainData.SetHeights(0, 0, heights);
-
-            // Apply textures to the terrain
-            // ApplyTerrainTextures(terrainData, biomeConfig);
-
-            // Notify listeners that terrain generation is complete
-            OnTerrainGenerated?.Invoke(terrainData);
+            // Set heights on terrain data with error handling
+            try
+            {
+                terrainData.SetHeights(0, 0, heights);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"Error setting heights: {ex.Message}. Dimensions: {heights.GetLength(0)}x{heights.GetLength(1)}");
+            }
 
             return terrainData;
         }
-
         private float[,] GenerateHeightmap(Vector2Int chunkCoord = default)
         {
             float[,] heights = new float[width + 1, height + 1];

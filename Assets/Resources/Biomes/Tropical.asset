@@ -27,8 +27,8 @@ MonoBehaviour:
   flatnessModifier: 0.1
   ruggednessFactor: 0.7
   warpStrength: 0.811
-  erosionIterations: 100
-  erosionTalus: 0.0344
-  smoothingFactor: 0.758
-  smoothingIterations: 4
+  erosionIterations: 6
+  erosionTalus: 0.0044
+  smoothingFactor: 0.471
+  smoothingIterations: 5
   terrainLayers: []

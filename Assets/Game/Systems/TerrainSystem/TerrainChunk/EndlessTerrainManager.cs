@@ -1,9 +1,9 @@
 ﻿using Assets.Game.Systems.TerrainSystem.Biomes;
 using Assets.Game.Systems.TerrainSystem.Generators;
-using Assets.Game.Systems.TerrainSystem.TerrainChunk;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Zenject;
 
 namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
 {
@@ -12,37 +12,48 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
         [Header("Terrain Settings")]
         [SerializeField] private int chunkSize = 256;
         [SerializeField] private int viewDistance = 3;
+        [SerializeField] private float detailFalloffFactor = 1.5f; // How quickly detail reduces with distance
         [SerializeField] private Transform viewer;
+        [SerializeField] private LayerMask terrainLayer;
         [SerializeField] private float updateVisibilityTime = 0.2f;
 
         [Header("Terrain Generation")]
         [SerializeField] private BiomeManager biomeManager;
         [SerializeField] private int seed = 0;
         [SerializeField] private bool randomizeSeeds = true;
+        [SerializeField] private bool useMultithreading = true;
 
         [Header("LOD Settings")]
         [SerializeField] private bool useLOD = true;
-        [SerializeField] private int[] lodResolutions = new int[] { 255, 129, 65 }; // For close, medium, far
+        [SerializeField] private int[] lodResolutions = new int[] { 255, 129, 65, 33 }; // For close, medium, far, very far
+        [SerializeField] private float[] lodDistances = new float[] { 1f, 2f, 3f, 4f }; // In chunk distances
 
-        // Terrain generation dependencies
+        // World and chunk management
+        private Dictionary<Vector2Int, TerrainChunk> terrainChunks = new Dictionary<Vector2Int, TerrainChunk>();
+        private List<TerrainChunk> visibleTerrainChunks = new List<TerrainChunk>();
+        private Vector2Int currentViewerChunkCoord;
+        private GameObject chunkParent;
+        private const float MAX_VIEW_DST = 800f;
+
+        // Threading and pooling for optimization
+        private Queue<Vector2Int> chunkGenerationQueue = new Queue<Vector2Int>();
+        private Queue<TerrainChunk> chunksToUpdate = new Queue<TerrainChunk>();
+        private List<TerrainChunk> chunkPool = new List<TerrainChunk>();
+        [SerializeField] private int maxChunksPerFrame = 1;
+        [SerializeField] private int chunkPoolSize = 10;
+
+        // Dependencies
         private TerrainGenerator terrainGenerator;
         private CombinedNoiseGenerator noiseGenerator;
 
-        // Chunk management
-        private Dictionary<Vector2Int, TerrainChunk> terrainChunks = new Dictionary<Vector2Int, TerrainChunk>();
-        private List<TerrainChunk> visibleChunks = new List<TerrainChunk>();
-
-        private Vector2Int currentChunkCoord;
-        private GameObject chunkParent;
-
-        private Queue<Vector2Int> chunkGenerationQueue = new Queue<Vector2Int>();
-        [SerializeField] private int maxChunksPerFrame = 1;
-
         private Vector3 viewerPositionOld;
+        private bool initialChunksGenerated = false;
+        private Coroutine chunkQueueCoroutine;
+        private Coroutine visibilityCoroutine;
 
         private void Awake()
         {
-            // Ensure a viewer is assigned (fallback to main camera if necessary)
+            // Ensure a viewer is assigned (fallback to main camera)
             if (viewer == null)
             {
                 Camera mainCamera = Camera.main;
@@ -50,60 +61,144 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                 {
                     viewer = mainCamera.transform;
                 }
+                else
+                {
+                    Debug.LogError("No main camera found for EndlessTerrainManager!");
+                }
             }
 
+            // Find dependencies if not assigned
             if (biomeManager == null)
             {
                 biomeManager = FindObjectOfType<BiomeManager>();
+                if (biomeManager == null)
+                {
+                    Debug.LogError("No BiomeManager found in scene!");
+                }
             }
 
-            // Create a parent GameObject for all chunks
+            // Create parent for chunks
             chunkParent = new GameObject("Terrain Chunks");
+            chunkParent.transform.SetParent(transform);
 
-            // Initialize noise and terrain generators
+            // Initialize systems
             InitializeGenerators();
-
-            // Begin asynchronous chunk generation
-            StartCoroutine(GenerateChunksOverTime());
+            InitializeChunkPool();
         }
 
         private void Start()
         {
-            if (viewer == null)
-            {
-                Debug.LogError("No viewer assigned to EndlessTerrainManager!");
-                return;
-            }
+            if (viewer == null) return;
 
             viewerPositionOld = viewer.position;
-            currentChunkCoord = WorldToChunkCoord(viewer.position);
-            Debug.Log($"Initial viewer position: {viewer.position}, chunk coord: {currentChunkCoord}");
+            currentViewerChunkCoord = WorldToChunkCoord(viewer.position);
 
-            // Immediately update the chunks and start updating visible chunks over time
-            UpdateChunks();
-            StartCoroutine(UpdateVisibleChunks());
+            // Start system coroutines
+            visibilityCoroutine = StartCoroutine(UpdateVisibleChunks());
+            chunkQueueCoroutine = StartCoroutine(ProcessChunkQueue());
+
+            // Initial chunk generation
+            GenerateInitialChunks();
         }
 
         private void Update()
         {
             if (viewer == null) return;
 
-            // Check if the viewer has moved into a new chunk
+            // When moving to a new chunk, update visible chunks
             Vector2Int newChunkCoord = WorldToChunkCoord(viewer.position);
-            if (newChunkCoord != currentChunkCoord)
+            if (newChunkCoord != currentViewerChunkCoord)
             {
-                currentChunkCoord = newChunkCoord;
-                UpdateChunks();
+                currentViewerChunkCoord = newChunkCoord;
+                QueueChunksInViewDistance();
             }
         }
 
+        private void OnDestroy()
+        {
+            // Stop all coroutines when destroyed
+            if (chunkQueueCoroutine != null)
+            {
+                StopCoroutine(chunkQueueCoroutine);
+            }
+
+            if (visibilityCoroutine != null)
+            {
+                StopCoroutine(visibilityCoroutine);
+            }
+
+            StopAllCoroutines();
+
+            // Clean up chunks
+            foreach (var chunk in terrainChunks.Values)
+            {
+                if (chunk != null)
+                {
+                    chunk.PrepareForDeactivation();
+                }
+            }
+
+            if (biomeManager != null)
+            {
+                biomeManager.OnBiomeChanged -= OnBiomeChanged;
+            }
+        }
+
+        #region Initialization
+
         private void InitializeGenerators()
         {
+            // Make sure BiomeManager exists
+            if (biomeManager == null)
+            {
+                Debug.LogError("BiomeManager is null! Trying to find or create one...");
+                biomeManager = FindObjectOfType<BiomeManager>();
+
+                if (biomeManager == null)
+                {
+                    // Create BiomeManager if it doesn't exist
+                    GameObject biomeManagerObj = new GameObject("BiomeManager");
+                    biomeManager = biomeManagerObj.AddComponent<BiomeManager>();
+                    Debug.Log("Created BiomeManager because none was found");
+                }
+            }
+
+            // Try to get current biome
             BiomeConfig currentBiome = biomeManager.GetCurrentBiome();
+
+            // If no biome is active, try to find available biomes
             if (currentBiome == null)
             {
-                Debug.LogError("No active biome for terrain generation");
-                return;
+                Debug.LogWarning("No active biome found. Attempting to find and set a biome...");
+
+                // Try getting available biomes
+                List<BiomeConfig> availableBiomes = biomeManager.GetAvailableBiomes();
+
+                if (availableBiomes != null && availableBiomes.Count > 0)
+                {
+                    // Use the first available biome
+                    currentBiome = availableBiomes[0];
+                    biomeManager.SetBiome(currentBiome);
+                    Debug.Log($"Set active biome to: {currentBiome.biomeName}");
+                }
+                else
+                {
+                    // No biomes found - we need to load biomes or create a default
+                    Debug.LogError("No biomes found! Make sure you have biome configurations in Resources/Biomes folder");
+
+                    // Create a default biome as a last resort
+                    currentBiome = CreateDefaultBiome();
+                    if (currentBiome != null)
+                    {
+                        Debug.Log("Created a default biome as a fallback");
+                        // The biome manager should now have this biome available
+                    }
+                    else
+                    {
+                        Debug.LogError("Failed to create default biome. Terrain generation will fail!");
+                        return;
+                    }
+                }
             }
 
             if (randomizeSeeds)
@@ -111,111 +206,308 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                 seed = UnityEngine.Random.Range(0, 100000);
             }
 
-            // Create the noise generator using the current biome and seed
-            noiseGenerator = new CombinedNoiseGenerator(currentBiome, seed);
-
-            // Create the terrain generator; note that each chunk’s TerrainData will be set to (chunkSize x chunkSize)
-            terrainGenerator = new TerrainGenerator(chunkSize, chunkSize, noiseGenerator);
-
-            // Subscribe to biome change events (to regenerate chunks when needed)
-            biomeManager.OnBiomeChanged += OnBiomeChanged;
-        }
-
-        /// <summary>
-        /// Converts a world position into a chunk coordinate.
-        /// </summary>
-        private Vector2Int WorldToChunkCoord(Vector3 worldPosition)
-        {
-            int x = Mathf.FloorToInt(worldPosition.x / chunkSize);
-            int z = Mathf.FloorToInt(worldPosition.z / chunkSize);
-            return new Vector2Int(x, z);
-        }
-
-        /// <summary>
-        /// Enqueue any chunks within view distance that aren’t already loaded.
-        /// </summary>
-        private void UpdateChunks()
-        {
-            for (int xOffset = -viewDistance; xOffset <= viewDistance; xOffset++)
+            // Create the noise generator with current biome
+            try
             {
-                for (int zOffset = -viewDistance; zOffset <= viewDistance; zOffset++)
-                {
-                    Vector2Int chunkCoord = new Vector2Int(
-                        currentChunkCoord.x + xOffset,
-                        currentChunkCoord.y + zOffset
-                    );
+                noiseGenerator = new CombinedNoiseGenerator(currentBiome, seed);
 
-                    if (!terrainChunks.ContainsKey(chunkCoord) && !chunkGenerationQueue.Contains(chunkCoord))
+                // Create terrain generator with initial resolution
+                terrainGenerator = new TerrainGenerator(lodResolutions[0], lodResolutions[0], noiseGenerator);
+
+                // Subscribe to biome changes
+                if (biomeManager != null)
+                {
+                    biomeManager.OnBiomeChanged += OnBiomeChanged;
+                }
+
+                Debug.Log($"Successfully initialized generators with biome: {currentBiome.biomeName}");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"Error creating terrain generators: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        // Add this method to create a default biome as a last resort
+        private BiomeConfig CreateDefaultBiome()
+        {
+            try
+            {
+                // Create a ScriptableObject for the default biome
+                BiomeConfig defaultBiome = ScriptableObject.CreateInstance<BiomeConfig>();
+
+                // Set default values
+                defaultBiome.biomeName = "Default Biome";
+                defaultBiome.biomeType = BiomeConfig.BiomeType.Forest;
+                defaultBiome.biomeDescription = "Default biome created as a fallback.";
+
+                // Set noise parameters
+                defaultBiome.macroNoiseScale = 50f;
+                defaultBiome.detailNoiseScale = 25f;
+                defaultBiome.ridgedNoiseScale = 35f;
+                defaultBiome.macroNoiseWeight = 0.6f;
+                defaultBiome.detailNoiseWeight = 0.3f;
+                defaultBiome.ridgedNoiseWeight = 0.1f;
+                defaultBiome.heightExponent = 1.5f;
+                defaultBiome.maxHeight = 50f;
+                defaultBiome.flatnessModifier = 0.2f;
+                defaultBiome.ruggednessFactor = 0.5f;
+                defaultBiome.warpStrength = 0.3f;
+                defaultBiome.erosionIterations = 20;
+                defaultBiome.erosionTalus = 0.01f;
+                defaultBiome.smoothingFactor = 0.2f;
+                defaultBiome.smoothingIterations = 2;
+
+                // Create a basic terrain layer for the default biome
+                TerrainLayer defaultLayer = new TerrainLayer();
+                defaultLayer.diffuseTexture = Texture2D.grayTexture; // Use a built-in texture
+                defaultLayer.tileSize = new Vector2(50, 50);
+                defaultBiome.terrainLayers = new TerrainLayer[] { defaultLayer };
+
+                // Assign to biome manager
+                if (biomeManager != null)
+                {
+                    // Add to biome manager's list if possible
+                    var method = biomeManager.GetType().GetMethod("AddBiome",
+                        System.Reflection.BindingFlags.Instance |
+                        System.Reflection.BindingFlags.Public |
+                        System.Reflection.BindingFlags.NonPublic);
+
+                    if (method != null)
                     {
-                        chunkGenerationQueue.Enqueue(chunkCoord);
+                        method.Invoke(biomeManager, new object[] { defaultBiome });
+                        biomeManager.SetBiome(defaultBiome);
+                    }
+                    else
+                    {
+                        // Direct assignment through SetBiome
+                        biomeManager.SetBiome(defaultBiome);
+                    }
+                }
+
+                return defaultBiome;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"Error creating default biome: {ex.Message}\n{ex.StackTrace}");
+                return null;
+            }
+        }
+
+        private void InitializeChunkPool()
+        {
+            // Preinstantiate inactive chunks for reuse
+            for (int i = 0; i < chunkPoolSize; i++)
+            {
+                GameObject chunkObj = new GameObject("PooledChunk");
+                chunkObj.transform.parent = chunkParent.transform;
+                TerrainChunk chunk = chunkObj.AddComponent<TerrainChunk>();
+                chunk.gameObject.SetActive(false);
+                chunkPool.Add(chunk);
+            }
+        }
+
+        private void GenerateInitialChunks()
+        {
+            // Generate chunks in immediate vicinity for initial load
+            QueueChunksInViewDistance(1); // Start with a smaller radius for faster initial load
+            initialChunksGenerated = true;
+        }
+
+        #endregion
+
+        #region Chunk Management
+
+        private void QueueChunksInViewDistance(int customViewDistance = -1)
+        {
+            int viewDst = customViewDistance > 0 ? customViewDistance : viewDistance;
+
+            // Queue chunks from center outward (prioritizing close chunks)
+            for (int dist = 0; dist <= viewDst; dist++)
+            {
+                for (int xOffset = -dist; xOffset <= dist; xOffset++)
+                {
+                    // Top and bottom edges of the square at this distance
+                    for (int zOffset = -dist; zOffset <= dist; zOffset++)
+                    {
+                        // Only process chunks at the current distance (square perimeter)
+                        if (Mathf.Abs(xOffset) == dist || Mathf.Abs(zOffset) == dist)
+                        {
+                            Vector2Int chunkCoord = new Vector2Int(
+                                currentViewerChunkCoord.x + xOffset,
+                                currentViewerChunkCoord.y + zOffset
+                            );
+
+                            // Only queue chunks that don't already exist
+                            if (!terrainChunks.ContainsKey(chunkCoord) && !ContainsChunkInQueue(chunkCoord))
+                            {
+                                chunkGenerationQueue.Enqueue(chunkCoord);
+                            }
+                        }
                     }
                 }
             }
-        }
 
-        /// <summary>
-        /// Coroutine to update the visibility of chunks at fixed intervals.
-        /// </summary>
-        private IEnumerator UpdateVisibleChunks()
-        {
-            while (true)
+            // After initial load, queue all remaining chunks in view distance
+            if (initialChunksGenerated && customViewDistance > 0)
             {
-                // Update visibility if the viewer has moved significantly
-                if (Vector3.Distance(viewer.position, viewerPositionOld) > 10)
-                {
-                    viewerPositionOld = viewer.position;
-                    UpdateChunkVisibility();
-                }
-
-                yield return new WaitForSeconds(updateVisibilityTime);
+                QueueChunksInViewDistance();
             }
         }
 
-        /// <summary>
-        /// Enables chunks within view and disables those outside view distance.
-        /// Optionally, you could also remove chunks that are too far.
-        /// </summary>
+        private bool ContainsChunkInQueue(Vector2Int coord)
+        {
+            // Check if a coordinate is already in the generation queue
+            // This is a simple O(n) implementation - could be improved with a HashSet if needed
+            foreach (Vector2Int queuedCoord in chunkGenerationQueue)
+            {
+                if (queuedCoord == coord) return true;
+            }
+            return false;
+        }
+
+        private IEnumerator ProcessChunkQueue()
+        {
+            WaitForEndOfFrame wait = new WaitForEndOfFrame();
+
+            while (true)
+            {
+                // Process a limited number of chunks per frame
+                int chunksThisFrame = 0;
+                while (chunkGenerationQueue.Count > 0 && chunksThisFrame < maxChunksPerFrame)
+                {
+                    Vector2Int coord = chunkGenerationQueue.Dequeue();
+
+                    // Skip if chunk already exists (could have been created while in queue)
+                    if (terrainChunks.ContainsKey(coord)) continue;
+
+                    // Create the chunk
+                    CreateChunkAtCoord(coord);
+                    chunksThisFrame++;
+                }
+
+                // Process any chunks waiting for updates 
+                chunksThisFrame = 0;
+                while (chunksToUpdate.Count > 0 && chunksThisFrame < maxChunksPerFrame)
+                {
+                    TerrainChunk chunk = chunksToUpdate.Dequeue();
+                    if (chunk != null && chunk.gameObject.activeInHierarchy)
+                    {
+                        chunk.UpdateLOD(GetChunkLODIndex(chunk));
+                        chunksThisFrame++;
+                    }
+                }
+
+                yield return wait;
+            }
+        }
+
+        private IEnumerator UpdateVisibleChunks()
+        {
+            WaitForSeconds wait = new WaitForSeconds(updateVisibilityTime);
+
+            while (true)
+            {
+                if (viewer != null)
+                {
+                    // Update visibility if viewer moved significantly
+                    if (Vector3.Distance(viewer.position, viewerPositionOld) > chunkSize / 10f)
+                    {
+                        viewerPositionOld = viewer.position;
+                        UpdateChunkVisibility();
+                    }
+                }
+                yield return wait;
+            }
+        }
+
         private void UpdateChunkVisibility()
         {
-            visibleChunks.Clear();
+            visibleTerrainChunks.Clear();
+            Vector2 viewerPosition2D = new Vector2(viewer.position.x, viewer.position.z);
+
+            // Update each chunk's visibility based on distance
+            List<Vector2Int> chunksToRemove = new List<Vector2Int>();
 
             foreach (var kvp in terrainChunks)
             {
                 TerrainChunk chunk = kvp.Value;
                 Vector2Int coord = kvp.Key;
 
-                // Using grid-distance; you could also use actual world distance if desired
-                int distX = Mathf.Abs(currentChunkCoord.x - coord.x);
-                int distZ = Mathf.Abs(currentChunkCoord.y - coord.y);
-                int maxDist = Mathf.Max(distX, distZ);
-
-                if (maxDist <= viewDistance)
+                // Skip null chunks (safety check)
+                if (chunk == null)
                 {
-                    chunk.gameObject.SetActive(true);
-                    visibleChunks.Add(chunk);
+                    chunksToRemove.Add(coord);
+                    continue;
+                }
+
+                // Get chunk center in world space
+                Vector2 chunkCenter = new Vector2(
+                    (coord.x * chunkSize) + (chunkSize / 2f),
+                    (coord.y * chunkSize) + (chunkSize / 2f)
+                );
+
+                // Calculate distance to chunk (using squared distance for efficiency)
+                float sqrDst = (viewerPosition2D - chunkCenter).sqrMagnitude;
+                float maxViewDstSqr = MAX_VIEW_DST * MAX_VIEW_DST;
+
+                if (sqrDst <= maxViewDstSqr)
+                {
+                    // Visible chunk
+                    if (!chunk.gameObject.activeSelf)
+                    {
+                        chunk.gameObject.SetActive(true);
+                    }
+
+                    // Update LOD if needed
+                    int newLodIndex = GetLODIndex(sqrDst);
+                    if (chunk.CurrentLOD != newLodIndex)
+                    {
+                        // Queue for LOD update rather than updating immediately
+                        chunksToUpdate.Enqueue(chunk);
+                    }
+
+                    visibleTerrainChunks.Add(chunk);
                 }
                 else
                 {
-                    chunk.gameObject.SetActive(false);
-                    // Optionally, destroy chunks that are very far away:
-                    // Destroy(chunk.gameObject);
-                    // terrainChunks.Remove(coord);
+                    // Not visible - ensure coroutines are stopped before deactivating
+                    chunk.PrepareForDeactivation();
+
+                    // Now deactivate
+                    if (chunk.gameObject.activeSelf)
+                    {
+                        chunk.gameObject.SetActive(false);
+                    }
+
+                    // Optionally recycle very distant chunks
+                    if (sqrDst > maxViewDstSqr * 4)
+                    {
+                        RecycleChunk(chunk, coord);
+                        chunksToRemove.Add(coord);
+                    }
                 }
             }
 
-            // Update neighbors so that chunk borders connect seamlessly
+            // Remove recycled chunks from dictionary
+            foreach (var coord in chunksToRemove)
+            {
+                terrainChunks.Remove(coord);
+            }
+
+            // After updating visibility, set neighbors to avoid seams
             UpdateChunkNeighbors();
         }
 
-        /// <summary>
-        /// Sets neighboring chunks on each visible chunk to avoid seams.
-        /// </summary>
         private void UpdateChunkNeighbors()
         {
-            foreach (TerrainChunk chunk in visibleChunks)
+            foreach (TerrainChunk chunk in visibleTerrainChunks)
             {
+                if (chunk == null || !chunk.gameObject.activeInHierarchy) continue;
+
                 Vector2Int coord = chunk.chunkCoord;
 
+                // Try to get neighboring chunks
                 terrainChunks.TryGetValue(new Vector2Int(coord.x - 1, coord.y), out TerrainChunk leftChunk);
                 terrainChunks.TryGetValue(new Vector2Int(coord.x, coord.y + 1), out TerrainChunk topChunk);
                 terrainChunks.TryGetValue(new Vector2Int(coord.x + 1, coord.y), out TerrainChunk rightChunk);
@@ -225,35 +517,44 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
             }
         }
 
-        /// <summary>
-        /// Creates a new chunk at the given coordinate.
-        /// </summary>
-        private TerrainChunk CreateChunk(Vector2Int coord)
+        private void RecycleChunk(TerrainChunk chunk, Vector2Int coord)
         {
-            Debug.Log($"CreateChunk({coord}) called");
+            // Stop any coroutines on the chunk first
+            chunk.PrepareForDeactivation();
 
-            // Determine LOD level based on grid distance
-            int gridDistance = Mathf.Max(Mathf.Abs(currentChunkCoord.x - coord.x), Mathf.Abs(currentChunkCoord.y - coord.y));
-            int lodLevel = 0;
-            if (useLOD)
+            // Reset and add to pool
+            chunk.ResetForPooling();
+            chunkPool.Add(chunk);
+        }
+
+        private TerrainChunk CreateChunkAtCoord(Vector2Int coord)
+        {
+            // Get LOD based on distance from viewer
+            Vector2 chunkCenterPos = new Vector2(
+                (coord.x * chunkSize) + (chunkSize / 2f),
+                (coord.y * chunkSize) + (chunkSize / 2f)
+            );
+            Vector2 viewerPos2D = new Vector2(viewer.position.x, viewer.position.z);
+            float sqrDst = (viewerPos2D - chunkCenterPos).sqrMagnitude;
+            int lodIndex = GetLODIndex(sqrDst);
+
+            // Use chunk from pool if available
+            TerrainChunk chunk = null;
+            if (chunkPool.Count > 0)
             {
-                if (gridDistance > 1) lodLevel = 1;
-                if (gridDistance > 2 && lodResolutions.Length > 2) lodLevel = 2;
+                chunk = chunkPool[chunkPool.Count - 1];
+                chunkPool.RemoveAt(chunkPool.Count - 1);
+                chunk.gameObject.name = $"Chunk_{coord.x}_{coord.y}";
+            }
+            else
+            {
+                // Create new if pool is empty
+                GameObject chunkObj = new GameObject($"Chunk_{coord.x}_{coord.y}");
+                chunkObj.transform.parent = chunkParent.transform;
+                chunk = chunkObj.AddComponent<TerrainChunk>();
             }
 
-            // Set resolution for this chunk based on LOD
-            int resolution = lodResolutions[lodLevel];
-            terrainGenerator.UpdateParameters(resolution, resolution);
-
-            // Create a new GameObject for the chunk
-            GameObject chunkObject = new GameObject($"Chunk_{coord.x}_{coord.y}");
-            chunkObject.transform.parent = chunkParent.transform;
-
-            // Add the TerrainChunk component
-            TerrainChunk chunk = chunkObject.AddComponent<TerrainChunk>();
-            Debug.Log($"TerrainChunk component added to {chunkObject.name}");
-
-            // Get the current biome (you could extend this to blend biomes based on position)
+            // Get current biome
             BiomeConfig biome = biomeManager.GetCurrentBiome();
             if (biome == null)
             {
@@ -261,59 +562,115 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                 return null;
             }
 
-            Debug.Log($"Initializing chunk with biome: {biome.biomeName}");
-
-            // Initialize the chunk (the chunk will position itself using its coord)
-            chunk.Initialize(coord, chunkSize, terrainGenerator, biome);
-            Debug.Log("Chunk initialized successfully");
-
-            // Add the chunk to our dictionary
+            // Initialize the chunk
+            chunk.gameObject.SetActive(true); // Make sure it's active before initialization
+            chunk.Initialize(coord, chunkSize, terrainGenerator, biome, lodIndex, lodResolutions[lodIndex]);
             terrainChunks.Add(coord, chunk);
+
             return chunk;
         }
 
-        /// <summary>
-        /// Handles biome changes by updating the noise generator and regenerating visible chunks.
-        /// </summary>
-        private void OnBiomeChanged(BiomeConfig newBiome)
+        private int GetLODIndex(float sqrDst)
         {
-            noiseGenerator.UpdateBiomeConfig(newBiome);
+            // Determine LOD level based on distance
+            float linearDst = Mathf.Sqrt(sqrDst) / chunkSize;
 
-            foreach (TerrainChunk chunk in visibleChunks)
+            for (int i = 0; i < lodDistances.Length; i++)
             {
-                chunk.GenerateTerrain();
+                if (linearDst <= lodDistances[i])
+                {
+                    return i;
+                }
             }
 
+            return lodDistances.Length - 1; // Max LOD if beyond all ranges
+        }
+
+        private int GetChunkLODIndex(TerrainChunk chunk)
+        {
+            Vector2 chunkCenterPos = new Vector2(
+                (chunk.chunkCoord.x * chunkSize) + (chunkSize / 2f),
+                (chunk.chunkCoord.y * chunkSize) + (chunkSize / 2f)
+            );
+            Vector2 viewerPos2D = new Vector2(viewer.position.x, viewer.position.z);
+            float sqrDst = (viewerPos2D - chunkCenterPos).sqrMagnitude;
+
+            return GetLODIndex(sqrDst);
+        }
+
+        private Vector2Int WorldToChunkCoord(Vector3 worldPosition)
+        {
+            int x = Mathf.FloorToInt(worldPosition.x / chunkSize);
+            int z = Mathf.FloorToInt(worldPosition.z / chunkSize);
+            return new Vector2Int(x, z);
+        }
+
+        #endregion
+
+        #region Event Handlers
+
+        private void OnBiomeChanged(BiomeConfig newBiome)
+        {
+            // Update noise generator with new biome
+            noiseGenerator.UpdateBiomeConfig(newBiome);
+
+            // Regenerate visible chunks with new biome
+            foreach (TerrainChunk chunk in visibleTerrainChunks)
+            {
+                if (chunk != null && chunk.gameObject.activeInHierarchy)
+                {
+                    chunk.GenerateTerrain();
+                }
+            }
+
+            // Ensure chunks fit together
+            UpdateChunkNeighbors();
+        }
+
+        #endregion
+
+        #region Public API
+
+        /// <summary>
+        /// Regenerates all visible chunks
+        /// </summary>
+        public void RegenerateVisibleTerrain()
+        {
+            foreach (TerrainChunk chunk in visibleTerrainChunks)
+            {
+                if (chunk != null && chunk.gameObject.activeInHierarchy)
+                {
+                    chunk.GenerateTerrain();
+                }
+            }
             UpdateChunkNeighbors();
         }
 
         /// <summary>
-        /// Processes the chunk generation queue over multiple frames.
+        /// Changes the view distance for terrain loading
         /// </summary>
-        private IEnumerator GenerateChunksOverTime()
+        public void SetViewDistance(int newViewDistance)
         {
-            while (true)
-            {
-                int chunksThisFrame = 0;
-                while (chunkGenerationQueue.Count > 0 && chunksThisFrame < maxChunksPerFrame)
-                {
-                    Vector2Int coord = chunkGenerationQueue.Dequeue();
-                    if (!terrainChunks.ContainsKey(coord))
-                    {
-                        CreateChunk(coord);
-                        chunksThisFrame++;
-                    }
-                }
-                yield return null;
-            }
+            viewDistance = Mathf.Max(1, newViewDistance);
+            QueueChunksInViewDistance();
         }
 
-        private void OnDestroy()
+        /// <summary>
+        /// Updates the seed and regenerates terrain
+        /// </summary>
+        public void UpdateSeed(int newSeed)
         {
-            if (biomeManager != null)
+            seed = newSeed;
+            if (noiseGenerator != null)
             {
-                biomeManager.OnBiomeChanged -= OnBiomeChanged;
+                // Recreate generators with new seed
+                BiomeConfig currentBiome = biomeManager.GetCurrentBiome();
+                noiseGenerator = new CombinedNoiseGenerator(currentBiome, seed);
+                terrainGenerator = new TerrainGenerator(lodResolutions[0], lodResolutions[0], noiseGenerator);
             }
+            RegenerateVisibleTerrain();
         }
+
+        #endregion
     }
 }
