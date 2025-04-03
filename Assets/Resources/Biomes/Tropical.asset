@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a907490c9e06b924b91ca0ddd5a06c04, type: 3}
+  m_Name: Tropical
+  m_EditorClassIdentifier: 
+  biomeType: 3
+  biomeName: Tropical
+  biomeDescription: Lush rainforest terrain with varied elevation and distinctive
+    valleys.
+  macroNoiseScale: 55
+  detailNoiseScale: 35
+  ridgedNoiseScale: 45
+  macroNoiseWeight: 0.6
+  detailNoiseWeight: 0.3
+  ridgedNoiseWeight: 0.1
+  heightExponent: 1.8
+  maxHeight: 60
+  flatnessModifier: 0.1
+  ruggednessFactor: 0.7
+  warpStrength: 0.811
+  erosionIterations: 100
+  erosionTalus: 0.0344
+  smoothingFactor: 0.758
+  smoothingIterations: 4
+  terrainLayers: []
