@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 4c87cf4e86bbe1f42b6390e88dbda4cc
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Core/Scripts/TerrainChunk.cs
+  uploadId: 666313

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 4efbd5d91be3a4147b74b805faed2550
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Core/Scripts/ObjectPoolManager.cs
+  uploadId: 666313

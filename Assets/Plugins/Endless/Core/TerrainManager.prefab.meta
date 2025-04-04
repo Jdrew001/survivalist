@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d489e61e8df15aa43807fe2b4c8937f2
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Core/TerrainManager.prefab
+  uploadId: 666313

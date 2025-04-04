@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: b8889695c4782bf4c905085dda75fc3e
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Demo/Scripts/DemoCamera.cs
+  uploadId: 666313

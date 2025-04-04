@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 00766f2c7ea2c6b45adb08978fe57983
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 625f186215c104763be7675aa2d941aa, type: 3}
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Core/Shaders/3d Terrain Shader.shadergraph
+  uploadId: 666313

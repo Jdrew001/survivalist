@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: e94616de44a00c048afcc9f3b1adc199
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Core/Scripts/TerrainTransformCollection.cs
+  uploadId: 666313

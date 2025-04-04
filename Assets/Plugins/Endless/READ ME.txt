@@ -1,0 +1,19 @@
+Thank you for purchasing Endless! In this document you will find everything you need to use this asset to its full potential. 
+
+Documentation is available on my website: https://johnmcmahonunity.wordpress.com/endless/quick-start-guide/
+
+
+If you're having problems importing the asset, please run through the following steps to see if any solve the problem.
+
+1. Re-import Endless
+2. Un-install and re-install dependency packages (Burst, Jobs, Collections, and Shader Graph)
+3. Close Unity, then delete the library folder and allow it to regenerate when you re-launch Unity
+
+If you cannot resolve the issue, I am always glad to help. You can join the discord for real-time support: https://discord.gg/GDXW5rcsAJ
+You can also email me at: johmmcmahondev@gmail.com
+
+
+To change render pipeline, simply import the relevant pipeline support package in the "LWRP and URP Support" folder. 
+
+
+If you're enjoying using Endless, I would greatly appreciate a review on the asset store.

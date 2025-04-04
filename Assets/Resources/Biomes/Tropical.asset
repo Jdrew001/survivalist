@@ -31,4 +31,5 @@ MonoBehaviour:
   erosionTalus: 0.0044
   smoothingFactor: 0.471
   smoothingIterations: 5
-  terrainLayers: []
+  terrainLayers:
+  - {fileID: 8574412962073106934, guid: b2fbf23a40e67524b844216c02f7961f, type: 2}

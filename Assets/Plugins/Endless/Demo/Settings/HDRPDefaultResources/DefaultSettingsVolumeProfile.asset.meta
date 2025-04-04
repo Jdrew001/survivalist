@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 763b7da6fddef034e9d8f624cdcb472b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Demo/Settings/HDRPDefaultResources/DefaultSettingsVolumeProfile.asset
+  uploadId: 666313

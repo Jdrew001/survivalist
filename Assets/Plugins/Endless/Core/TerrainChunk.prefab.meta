@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 50686847ca33c5e41b8e7822066161aa
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Core/TerrainChunk.prefab
+  uploadId: 666313

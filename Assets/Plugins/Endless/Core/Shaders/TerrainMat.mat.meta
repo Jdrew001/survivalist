@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d7edb905e2aa2d145b50a13025fd00d1
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Core/Shaders/TerrainMat.mat
+  uploadId: 666313

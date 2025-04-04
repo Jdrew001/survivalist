@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 060b4c594d060bb4497a50904bd7b7e9
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 270032
+  packageName: Endless - Infinite Terrain Generation
+  packageVersion: 1.2
+  assetPath: Assets/John McMahon/Endless/Core/Shaders/Triplanar.hlsl
+  uploadId: 666313

@@ -1,0 +1,114 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4193821762832308782
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5258274856255187595}
+  - component: {fileID: 7778516431377239361}
+  m_Layer: 0
+  m_Name: TerrainManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5258274856255187595
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4193821762832308782}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7778516431377239361
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4193821762832308782}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 010917e34f031524dbe4ae0afe383075, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  generationMode: 0
+  originOffset: {x: 0, y: 0}
+  chunkRadius: 12
+  randomizeSeed: 0
+  seed: 1
+  maxViewAngle: 60
+  viewGenerationFactor: 15
+  player: {fileID: 0}
+  generateAtRuntime: 1
+  temperatureNoiseValues:
+    scale: 192.67
+    persistence: 0.6
+    lacunarity: 1.4
+    octaves: 4
+    bias: 0
+    enabled: 0
+  moistureNoiseValues:
+    scale: 192.67
+    persistence: 0.6
+    lacunarity: 1.4
+    octaves: 4
+    bias: 0
+    enabled: 0
+  biomeGridSize: 500
+  biomeBlend: 25
+  terrainBiomes: []
+  currentEditingBiome: -1
+  size3DExposed: {x: 32, y: 256, z: 32}
+  size3D: {x: 33, y: 201, z: 33}
+  verticalSampleRate: 8
+  horizontalSampleRate: 4
+  ridgedNoiseEnabled: 0
+  ridgedNoiseValues: []
+  chunkPrefab: {fileID: 5183742546295039409, guid: 50686847ca33c5e41b8e7822066161aa,
+    type: 3}
+  minColliderChunkDistance: 2
+  colliderBatchSize: 10
+  densityThreshold: 0
+  terrainMat: {fileID: 2100000, guid: d7edb905e2aa2d145b50a13025fd00d1, type: 2}
+  textureBlendDistance: 0.02
+  textureSteepnessBlendDistance: 0.04
+  textureSecondSteepnessBlendDistance: 0.08
+  vegetationBlendDistance: 0.01
+  texSize: 2048
+  textureFormat: 4
+  steepnessThreshold: 0.08
+  secondSteepnessThreshold: 0.2
+  waterEnabled: 0
+  waterPrefab: {fileID: 0}
+  waterLevel: 0
+  roadsEnabled: 0
+  roadRidgedNoisePasses: []
+  roadHeight: 15
+  roadWeightObjectSpawnThreshold: 0.5
+  roadTextureHeight: 10
+  roadTextureStrength: 2
+  roadStartHeightTextureBias: 3
+  roadElevationMode: 0
+  minRoadDeformHeight: 0
+  maxRoadDeformHeight: 0
+  roadFillStrength: 1
+  roadCarveStrength: 10
+  structuresEnabled: 0
+  structureCheckRadius: 50
+  structureCheckChunkLength: 4
+  structureWeightChangeMultiplier: 4
+  structurePathStartHeightOffset: 5
+  enableAdvancedInspector: 0
