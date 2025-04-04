@@ -21,6 +21,13 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
 
         [SerializeField] private Material terrainMaterial;
 
+        // Public setter for terrain material
+        public Material TerrainMaterial
+        {
+            get { return terrainMaterial; }
+            set { terrainMaterial = value; }
+        }
+
         /// <summary>
         /// Initializes or resets this chunk with the specified parameters
         /// </summary>
@@ -122,12 +129,8 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                 {
                     terrain.materialTemplate = terrainMaterial;
                 }
-                else
-                {
-                    terrain.materialType = Terrain.MaterialType.BuiltInStandard;
-                }
 
-                // Set terrain properties
+                // Set terrain properties for proper neighbor connection
                 terrain.allowAutoConnect = true;
                 terrain.drawInstanced = true; // Better performance with instanced rendering
                 terrain.groupingID = CurrentLOD; // Use LOD level as grouping ID to match LOD levels
@@ -247,10 +250,10 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                     // Make sure terrain exists
                     if (terrain != null)
                     {
-                        // If existing terrain material is null, use the material from biomeConfig
-                        if (terrainMaterial == null && biomeConfig != null && biomeConfig.terrainLayers != null && biomeConfig.terrainLayers.Length > 0)
+                        // Apply terrain material if available
+                        if (terrainMaterial != null)
                         {
-                            terrain.materialType = Terrain.MaterialType.BuiltInStandard;
+                            terrain.materialTemplate = terrainMaterial;
                         }
 
                         // Make sure terrain has the correct terrainData
@@ -262,6 +265,9 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                         {
                             collider.terrainData = terrainData;
                         }
+
+                        // Ensure proper connection parameters
+                        terrain.allowAutoConnect = true;
                     }
                     else
                     {
@@ -364,12 +370,35 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
             try
             {
                 terrain.SetNeighbors(leftTerrain, topTerrain, rightTerrain, bottomTerrain);
+
+                // Log successful neighbor connection for debugging
+                Debug.Log($"Set neighbors for chunk {chunkCoord}: Left: {leftTerrain != null}, Top: {topTerrain != null}, Right: {rightTerrain != null}, Bottom: {bottomTerrain != null}");
             }
             catch (System.Exception ex)
             {
                 Debug.LogError($"Error setting neighbors for chunk {chunkCoord}: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Debug method to check neighbor connections
+        /// </summary>
+        //public void DebugNeighborStatus()
+        //{
+        //    if (terrain == null) return;
+
+        //    Terrain left = null, top = null, right = null, bottom = null;
+        //    terrain.GetNeighbors(ref left, ref top, ref right, ref bottom);
+
+        //    Debug.Log($"Chunk {chunkCoord} neighbors: Left: {left != null}, Top: {top != null}, Right: {right != null}, Bottom: {bottom != null}");
+        //    Debug.Log($"Chunk {chunkCoord} allowAutoConnect: {terrain.allowAutoConnect}");
+
+        //    // Also check heightmap resolution and size
+        //    if (terrainData != null)
+        //    {
+        //        Debug.Log($"Chunk {chunkCoord} heightmap resolution: {terrainData.heightmapResolution}, size: {terrainData.size}");
+        //    }
+        //}
 
         /// <summary>
         /// Prepares this chunk for deactivation by stopping coroutines

@@ -12,7 +12,7 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
         [Header("Terrain Settings")]
         [SerializeField] private int chunkSize = 256;
         [SerializeField] private int viewDistance = 3;
-        [SerializeField] private float detailFalloffFactor = 1.5f; // How quickly detail reduces with distance
+        [SerializeField] private float detailFalloffFactor = 1.5f;
         [SerializeField] private Transform viewer;
         [SerializeField] private LayerMask terrainLayer;
         [SerializeField] private float updateVisibilityTime = 0.2f;
@@ -28,6 +28,10 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
         [SerializeField] private int[] lodResolutions = new int[] { 255, 129, 65, 33 }; // For close, medium, far, very far
         [SerializeField] private float[] lodDistances = new float[] { 1f, 2f, 3f, 4f }; // In chunk distances
 
+        [Header("Terrain Connection Settings")]
+        [SerializeField] private Material sharedTerrainMaterial; // Assign this in the inspector
+        [SerializeField] private bool debugChunkConnections = false;
+
         // World and chunk management
         private Dictionary<Vector2Int, TerrainChunk> terrainChunks = new Dictionary<Vector2Int, TerrainChunk>();
         private List<TerrainChunk> visibleTerrainChunks = new List<TerrainChunk>();
@@ -39,6 +43,8 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
         private Queue<Vector2Int> chunkGenerationQueue = new Queue<Vector2Int>();
         private Queue<TerrainChunk> chunksToUpdate = new Queue<TerrainChunk>();
         private List<TerrainChunk> chunkPool = new List<TerrainChunk>();
+
+
         [SerializeField] private int maxChunksPerFrame = 1;
         [SerializeField] private int chunkPoolSize = 10;
 
@@ -312,6 +318,9 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
             // Generate chunks in immediate vicinity for initial load
             QueueChunksInViewDistance(1); // Start with a smaller radius for faster initial load
             initialChunksGenerated = true;
+
+            // Schedule an update of connections after chunks are generated
+            StartCoroutine(UpdateConnectionsDelayed());
         }
 
         #endregion
@@ -514,7 +523,25 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                 terrainChunks.TryGetValue(new Vector2Int(coord.x, coord.y - 1), out TerrainChunk bottomChunk);
 
                 chunk.SetNeighbors(leftChunk, topChunk, rightChunk, bottomChunk);
+
+                // Debug chunk connections if enabled
+                if (debugChunkConnections)
+                {
+                    //chunk.DebugNeighborStatus();
+                }
             }
+        }
+
+        private IEnumerator UpdateConnectionsDelayed()
+        {
+            // Wait a frame to ensure all chunks are generated
+            yield return null;
+
+            // Update chunk neighbors
+            UpdateChunkNeighbors();
+
+            // Log that connections have been updated
+            Debug.Log("Chunk connections updated");
         }
 
         private void RecycleChunk(TerrainChunk chunk, Vector2Int coord)
@@ -560,6 +587,12 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
             {
                 Debug.LogError("No biome available for chunk!");
                 return null;
+            }
+
+            // Assign the shared terrain material if available
+            if (sharedTerrainMaterial != null)
+            {
+                chunk.TerrainMaterial = sharedTerrainMaterial;
             }
 
             // Initialize the chunk
