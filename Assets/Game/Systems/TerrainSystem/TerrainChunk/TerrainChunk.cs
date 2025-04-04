@@ -11,6 +11,7 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
         public Terrain terrain { get; private set; }
         public TerrainData terrainData { get; private set; }
         public int CurrentLOD { get; private set; } = 0;
+        public bool IsGenerationComplete { get; private set; } = false;
 
         private TerrainGenerator terrainGenerator;
         private BiomeConfig biomeConfig;
@@ -284,7 +285,9 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                 Debug.LogError($"Error generating terrain for chunk {chunkCoord}: {ex.Message}\n{ex.StackTrace}");
             }
 
+            // after all work is done:
             isGenerating = false;
+            IsGenerationComplete = true;
             generationCoroutine = null;
         }
 
@@ -449,6 +452,8 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
             {
                 Debug.LogError($"Error in ResetForPooling for chunk {chunkCoord}: {ex.Message}");
             }
+
+            IsGenerationComplete = false;
         }
 
         /// <summary>

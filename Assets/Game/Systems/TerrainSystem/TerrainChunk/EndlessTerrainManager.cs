@@ -57,6 +57,15 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
         private Coroutine chunkQueueCoroutine;
         private Coroutine visibilityCoroutine;
 
+        private bool initialGenerationComplete = false;
+        private List<TerrainChunk> pendingConnectionChunks = new List<TerrainChunk>();
+
+        // Add a public method to force connection updates
+        public void ForceUpdateConnections()
+        {
+            StartCoroutine(UpdateConnectionsDelayed());
+        }
+
         private void Awake()
         {
             // Ensure a viewer is assigned (fallback to main camera)
@@ -378,6 +387,8 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
         private IEnumerator ProcessChunkQueue()
         {
             WaitForEndOfFrame wait = new WaitForEndOfFrame();
+            float connectionUpdateTimer = 0f;
+            float connectionUpdateInterval = 2.0f; // Check every 2 seconds
 
             while (true)
             {
@@ -404,6 +415,18 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                     {
                         chunk.UpdateLOD(GetChunkLODIndex(chunk));
                         chunksThisFrame++;
+                    }
+                }
+
+                connectionUpdateTimer += Time.deltaTime;
+                if (initialGenerationComplete && connectionUpdateTimer > connectionUpdateInterval)
+                {
+                    connectionUpdateTimer = 0f;
+
+                    // Only update if there are pending chunks
+                    if (pendingConnectionChunks.Count > 0)
+                    {
+                        StartCoroutine(UpdateNewChunkConnections());
                     }
                 }
 
@@ -512,7 +535,8 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
         {
             foreach (TerrainChunk chunk in visibleTerrainChunks)
             {
-                if (chunk == null || !chunk.gameObject.activeInHierarchy) continue;
+                if (chunk == null || !chunk.IsGenerationComplete || !chunk.gameObject.activeInHierarchy)
+                    continue;
 
                 Vector2Int coord = chunk.chunkCoord;
 
@@ -522,26 +546,68 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
                 terrainChunks.TryGetValue(new Vector2Int(coord.x + 1, coord.y), out TerrainChunk rightChunk);
                 terrainChunks.TryGetValue(new Vector2Int(coord.x, coord.y - 1), out TerrainChunk bottomChunk);
 
-                chunk.SetNeighbors(leftChunk, topChunk, rightChunk, bottomChunk);
+                // Only use neighbors that are fully generated
+                if (leftChunk != null && !leftChunk.IsGenerationComplete) leftChunk = null;
+                if (topChunk != null && !topChunk.IsGenerationComplete) topChunk = null;
+                if (rightChunk != null && !rightChunk.IsGenerationComplete) rightChunk = null;
+                if (bottomChunk != null && !bottomChunk.IsGenerationComplete) bottomChunk = null;
 
-                // Debug chunk connections if enabled
-                if (debugChunkConnections)
+                chunk.SetNeighbors(leftChunk, topChunk, rightChunk, bottomChunk);
+            }
+
+            // Force a terrain update to apply changes
+            foreach (TerrainChunk chunk in visibleTerrainChunks)
+            {
+                if (chunk != null && chunk.terrain != null)
                 {
-                    //chunk.DebugNeighborStatus();
+                    chunk.terrain.Flush();
                 }
             }
         }
 
         private IEnumerator UpdateConnectionsDelayed()
         {
-            // Wait a frame to ensure all chunks are generated
-            yield return null;
+            Debug.Log("Starting connection update process");
+
+            // First wait until the chunk queue is empty
+            while (chunkGenerationQueue.Count > 0)
+            {
+                yield return null;
+            }
+
+            Debug.Log("Generation queue processed, waiting for chunk generation to complete");
+
+            // Now wait until all visible chunks have completed generation
+            bool allChunksGenerated = false;
+            int maxWaitFrames = 100; // Safety timeout
+            int waitedFrames = 0;
+
+            while (!allChunksGenerated && waitedFrames < maxWaitFrames)
+            {
+                allChunksGenerated = true;
+
+                // Check if any chunks are still generating
+                foreach (TerrainChunk chunk in visibleTerrainChunks)
+                {
+                    if (chunk != null && !chunk.IsGenerationComplete)
+                    {
+                        allChunksGenerated = false;
+                        break;
+                    }
+                }
+
+                yield return null;
+                waitedFrames++;
+            }
+
+            // Give it a couple more frames for safety
+            yield return new WaitForSeconds(0.1f);
 
             // Update chunk neighbors
             UpdateChunkNeighbors();
 
-            // Log that connections have been updated
-            Debug.Log("Chunk connections updated");
+            initialGenerationComplete = true;
+            Debug.Log($"Chunk connections updated after waiting {waitedFrames} frames");
         }
 
         private void RecycleChunk(TerrainChunk chunk, Vector2Int coord)
@@ -600,7 +666,51 @@ namespace Assets.Game.Systems.TerrainSystem.TerrainChunk
             chunk.Initialize(coord, chunkSize, terrainGenerator, biome, lodIndex, lodResolutions[lodIndex]);
             terrainChunks.Add(coord, chunk);
 
+            if (initialGenerationComplete)
+            {
+                // If this is a chunk created after initial setup, 
+                // schedule a connection update
+                pendingConnectionChunks.Add(chunk);
+                StartCoroutine(UpdateNewChunkConnections());
+            }
+
             return chunk;
+        }
+
+        // Add a new method to handle connections for new chunks
+        private IEnumerator UpdateNewChunkConnections()
+        {
+            // Wait a few frames to let chunks initialize
+            yield return new WaitForSeconds(0.2f);
+
+            // Make sure all pending chunks are done generating
+            bool allDone = false;
+            int waitFrames = 0;
+            int maxWaitFrames = 30;
+
+            while (!allDone && waitFrames < maxWaitFrames)
+            {
+                allDone = true;
+                foreach (TerrainChunk chunk in pendingConnectionChunks)
+                {
+                    if (chunk != null && !chunk.IsGenerationComplete)
+                    {
+                        allDone = false;
+                        break;
+                    }
+                }
+
+                yield return null;
+                waitFrames++;
+            }
+
+            // Update chunk connections
+            UpdateChunkNeighbors();
+
+            // Clear pending list
+            pendingConnectionChunks.Clear();
+
+            Debug.Log($"New chunk connections updated");
         }
 
         private int GetLODIndex(float sqrDst)
