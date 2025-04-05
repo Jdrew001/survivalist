@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
+using Assets.Game.Inventory;
+using Assets.Game.Inventory.UI;
 
 public class RealisticPlayerMovement : MonoBehaviour
 {
@@ -255,8 +257,22 @@ public class RealisticPlayerMovement : MonoBehaviour
         // Move the character
         controller.Move(finalVelocity * Time.deltaTime);
 
+        if (Input.GetKeyDown(KeyCode.I))
+        {
+            if (InventoryManager.Instance != null)
+            {
+                InventoryManager.Instance.OpenContainer(
+                    InventoryManager.Instance.playerInventory);
+            }
+        }
+
         // Update camera position based on crouch
         UpdateCameraPosition();
+    }
+
+    public void SetMovementEnabled(bool enabled)
+    {
+        this.enabled = enabled;
     }
 
     private void HandleJump(bool isGrounded)
