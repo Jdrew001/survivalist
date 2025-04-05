@@ -912,6 +912,7 @@ GameObject:
   - component: {fileID: 1711733146}
   - component: {fileID: 1711733145}
   - component: {fileID: 1711733144}
+  - component: {fileID: 1711733147}
   m_Layer: 0
   m_Name: PlayerObject
   m_TagString: Untagged
@@ -1001,6 +1002,21 @@ Transform:
   - {fileID: 534744513}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1711733147
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1711733143}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c4df0f9919686e44bd1db93c50f8b83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  toggleInventoryKey: 105
+  cameraController: {fileID: 986622602}
+  playerMovement: {fileID: 1711733144}
 --- !u!1 &1858374605
 GameObject:
   m_ObjectHideFlags: 0
