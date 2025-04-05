@@ -10,7 +10,7 @@ namespace Assets.Game.Inventory.Helpers
 {
     public class WorldItem : MonoBehaviour
     {
-        [SerializeField] private string itemId;
+        [SerializeField] public string itemId;
         [SerializeField] private int initialStackSize = 1;
         [SerializeField] private ItemDatabase itemDatabase;
 

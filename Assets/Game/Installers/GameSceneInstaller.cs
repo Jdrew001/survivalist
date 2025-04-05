@@ -1,4 +1,5 @@
 using Assets.Game.Managers.States;
+using EndlessTerrain;
 using UnityEngine;
 using Zenject;
 
@@ -6,7 +7,6 @@ public class GameSceneInstaller : MonoInstaller
 {
     public override void InstallBindings()
     {
-        //Container.Bind<TerrainGenerator>().AsSingle();
-        //Container.Bind<CombinedNoiseGenerator>().AsSingle();
+        Container.Bind<TerrainManager>().AsSingle();
     }
 }
