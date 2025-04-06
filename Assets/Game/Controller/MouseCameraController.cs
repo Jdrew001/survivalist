@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using Assets.Game.Services.Interfaces;
+using UnityEngine;
+using Zenject;
 
 public class MouseCameraController : MonoBehaviour
 {
@@ -16,6 +18,10 @@ public class MouseCameraController : MonoBehaviour
     // Debug options
     [Header("Debug")]
     [SerializeField] private bool showDebugLogs = false;
+
+    [Inject]
+    private IPlayerService playerService;
+
 
     // Internal variables
     private float xRotation = 0f;
@@ -78,6 +84,9 @@ public class MouseCameraController : MonoBehaviour
 
     void Update()
     {
+        if (!playerService.CameraCanMove)
+            return;
+
         // Get mouse input
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
